@@ -27,15 +27,21 @@ public class PatentSearchController {
     private RestTemplate restTemplate;
 
     @Resource
-    private ObjectMapper objectMapper;  // 使用 Jackson 的 ObjectMapper
+    private ObjectMapper objectMapper;  // 注入 Jackson 的 ObjectMapper 解析json数据
 
+    /**
+     * 通过获取token的接口缓存的token去请求api以正常响应
+     * @param session 会话缓存
+     * @param patentJson 接口返回数据结构
+     * @return ResponseEntity
+     */
     @PostMapping("/search")
-    public ResponseEntity<?> searchPatents(HttpSession session, @RequestBody PatentJson patentJson) {
+    public ResponseEntity<?> searchPatents(@RequestBody PatentJson patentJson,HttpSession session ) {
         // 从 session 中获取 apikey 和 token
         String apikey = (String) session.getAttribute("apikey");
         String token = (String) session.getAttribute("token");
 
-        // 如果 apikey 或 token 为空，抛出 UnauthorizedException 异常
+        // 会话未登录或者缓存过期都会抛出 UnauthorizedException 异常
         if (apikey == null || token == null) {
             throw new UnauthorizedException("token已过期或未存在，请重新登录");
         }

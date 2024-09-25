@@ -5,6 +5,10 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.List;
 
+/**
+ * @author li
+ * P002对应api请求体数据
+ */
 @Data
 public class PatentJson implements Serializable {
 

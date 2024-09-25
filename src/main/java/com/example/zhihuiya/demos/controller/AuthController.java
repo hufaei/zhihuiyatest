@@ -22,47 +22,51 @@ public class AuthController {
     @Resource
     private RestTemplate restTemplate;
 
+    /**
+     * 通过不暴露的clientId和clientSecret的输入获取token
+     * @param clientId 同apikey
+     * @param clientSecret 解码
+     * @param session 会话缓存
+     * @return ResponseEntity
+     */
     @PostMapping("/token")
     public ResponseEntity<?> generateToken(@RequestParam String clientId, @RequestParam String clientSecret, HttpSession session) {
-        // Base URL format with embedded credentials
+        // token连接url
         String url = "https://connect.zhihuiya.com/oauth/token";
 
-        // Create Basic Auth header using Base64 encoding
+        // 创建连接请求对象
         String auth = clientId + ":" + clientSecret;
         String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
         String authHeader = "Basic " + encodedAuth;
 
-        // Set headers
+        // 请求对象写入请求头部
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        headers.set("Authorization", authHeader);  // Add Basic Auth header
+        headers.set("Authorization", authHeader);
 
-        // Manually encode form parameters for the body
+        // 请求体添加必要参数
         MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
         requestBody.add("grant_type", "client_credentials");
 
-        // Create the request entity with headers and body
+        // 初始化响应实体
         HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            // Send POST request to fetch the token
+            // post请求获取响应体数据
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
-            // Extract token from the response body (assumes JSON structure)
-            // Assuming the token field is located in `data.token`
+            // 解析响应，提取所需token
             String responseBody = response.getBody();
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(responseBody);
             String token = jsonNode.path("data").path("token").asText();
 
-            // Save token and clientId to session
+            // 保存到session中
             session.setAttribute("token", token);
             session.setAttribute("apikey", clientId);
 
-            // Return the response body (access token)
             return ResponseEntity.ok(responseBody);
         } catch (Exception e) {
-            // Handle and return error message
             return ResponseEntity.status(500).body("请求失败: " + e.getMessage());
         }
     }
