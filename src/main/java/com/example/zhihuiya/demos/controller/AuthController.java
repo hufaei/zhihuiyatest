@@ -1,13 +1,19 @@
-package com.example.zhihuiya.demos.web;
+package com.example.zhihuiya.demos.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
-
-import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
-import java.util.HashMap;
-import java.util.Map;
+import javax.annotation.Resource;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -16,32 +22,47 @@ public class AuthController {
     @Resource
     private RestTemplate restTemplate;
 
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestParam String clientId, @RequestParam String clientSecret, @RequestParam String apikey, HttpSession session) {
-        // 请求 token 的 URL
+    @PostMapping("/token")
+    public ResponseEntity<?> generateToken(@RequestParam String clientId, @RequestParam String clientSecret, HttpSession session) {
+        // Base URL format with embedded credentials
         String url = "https://connect.zhihuiya.com/oauth/token";
 
-        // 设置请求头和请求体
-        Map<String, String> requestBody = new HashMap<>();
-        requestBody.put("grant_type", "client_credentials");
+        // Create Basic Auth header using Base64 encoding
+        String auth = clientId + ":" + clientSecret;
+        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
+        String authHeader = "Basic " + encodedAuth;
+
+        // Set headers
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        headers.set("Authorization", authHeader);  // Add Basic Auth header
+
+        // Manually encode form parameters for the body
+        MultiValueMap<String, String> requestBody = new LinkedMultiValueMap<>();
+        requestBody.add("grant_type", "client_credentials");
+
+        // Create the request entity with headers and body
+        HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
-            // 发送请求获取 token
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, requestBody, Map.class);
+            // Send POST request to fetch the token
+            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
-            if (response.getStatusCode().is2xxSuccessful()) {
-                Map<String, Object> responseBody = response.getBody();
-                String token = (String) responseBody.get("token");
+            // Extract token from the response body (assumes JSON structure)
+            // Assuming the token field is located in `data.token`
+            String responseBody = response.getBody();
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(responseBody);
+            String token = jsonNode.path("data").path("token").asText();
 
-                // 将 apikey 和 token 存入 session
-                session.setAttribute("apikey", apikey);
-                session.setAttribute("token", token);
+            // Save token and clientId to session
+            session.setAttribute("token", token);
+            session.setAttribute("apikey", clientId);
 
-                return ResponseEntity.ok("登录成功, Token 已存储.");
-            } else {
-                return ResponseEntity.status(response.getStatusCode()).body("登录失败");
-            }
+            // Return the response body (access token)
+            return ResponseEntity.ok(responseBody);
         } catch (Exception e) {
+            // Handle and return error message
             return ResponseEntity.status(500).body("请求失败: " + e.getMessage());
         }
     }

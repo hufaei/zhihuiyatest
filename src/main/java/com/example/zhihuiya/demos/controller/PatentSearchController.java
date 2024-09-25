@@ -1,15 +1,22 @@
-package com.example.zhihuiya.demos.web;
+package com.example.zhihuiya.demos.controller;
 
+import com.example.zhihuiya.exception.UnauthorizedException;
+import com.example.zhihuiya.model.dto.PatentJson;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
-import com.alibaba.fastjson.JSONObject;
-import com.example.zhihuiya.model.dto.PatentJson;
+
 import javax.annotation.Resource;
+import javax.servlet.http.HttpSession;
 
 @RestController
 @Slf4j
@@ -18,19 +25,37 @@ public class PatentSearchController {
 
     @Resource
     private RestTemplate restTemplate;
+
+    @Resource
+    private ObjectMapper objectMapper;  // 使用 Jackson 的 ObjectMapper
+
     @PostMapping("/search")
-    public ResponseEntity<?> searchPatents(@RequestHeader("apikey") String apikey, @RequestBody PatentJson patentJson) {
+    public ResponseEntity<?> searchPatents(HttpSession session, @RequestBody PatentJson patentJson) {
+        // 从 session 中获取 apikey 和 token
+        String apikey = (String) session.getAttribute("apikey");
+        String token = (String) session.getAttribute("token");
+
+        // 如果 apikey 或 token 为空，抛出 UnauthorizedException 异常
+        if (apikey == null || token == null) {
+            throw new UnauthorizedException("token已过期或未存在，请重新登录");
+        }
+
         // 外部API的URL
         String url = "https://connect.zhihuiya.com/search/patent/query-search-patent?apikey=" + apikey;
 
         // 设置请求头，使用JSON格式
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Authorization", "Bearer 85abeae1a334416985fbbd18eb7e4e92_e0taz8dgc4"); // 添加 Authorization 头
+        headers.set("Authorization", "Bearer " + token); // 从 session 中取出 token
 
-        // 将 PatentJson 对象转换为 JSON 字符串
-        String requestBody = JSONObject.toJSONString(patentJson);
-        System.out.printf(requestBody);
+        String requestBody;
+        try {
+            // 使用 Jackson 将 PatentJson 对象转换为 JSON 字符串
+            requestBody = objectMapper.writeValueAsString(patentJson);
+        } catch (JsonProcessingException e) {
+            // 如果 JSON 转换失败，返回错误信息
+            return ResponseEntity.status(400).body("JSON 格式错误: " + e.getMessage());
+        }
 
         // 构建请求体
         HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
@@ -38,12 +63,11 @@ public class PatentSearchController {
         try {
             // 发送POST请求
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-            // 返回外部API的响应体
+
             return ResponseEntity.ok(response.getBody());
         } catch (Exception e) {
-            // 如果请求失败，返回错误信息
+
             return ResponseEntity.status(500).body("请求失败: " + e.getMessage());
         }
     }
-
 }

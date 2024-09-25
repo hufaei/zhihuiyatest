@@ -1,3 +1,14 @@
 # 应用服务 WEB 访问端口
-server.port=8080
 
+knife4j:
+  enable: true
+  openapi:
+    title: "接口文档"  # 确保引号包裹了含有特殊字符的内容
+    version: 1.0
+    group:
+      default:
+        api-rule: package
+        api-rule-resources:
+          - com.example.zhihuiya.demos.controller
+server:
+  port: 8080
