@@ -2,10 +2,7 @@ package com.example.zhihuiya.demos.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +11,7 @@ import javax.servlet.http.HttpSession;
 import javax.annotation.Resource;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -24,13 +22,22 @@ public class AuthController {
 
     /**
      * 通过不暴露的clientId和clientSecret的输入获取token
-     * @param clientId 同apikey
-     * @param clientSecret 解码
-     * @param session 会话缓存
+     * @param request 包含clientId和clientSecret的json请求体
      * @return ResponseEntity
      */
     @PostMapping("/token")
-    public ResponseEntity<?> generateToken(@RequestParam String clientId, @RequestParam String clientSecret, HttpSession session) {
+    public ResponseEntity<?> generateToken(@RequestBody Map<String, String> request) {
+        // 获取clientId和clientSecret从JSON请求体中
+        String clientId = request.get("clientId");
+        String clientSecret = request.get("clientSecret");
+
+        // 校验 clientId 和 clientSecret 是否有效
+        if (clientId == null || clientId.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("clientId 不能为空");
+        }
+        if (clientSecret == null || clientSecret.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("clientSecret 不能为空");
+        }
         // token连接url
         String url = "https://connect.zhihuiya.com/oauth/token";
 
@@ -60,10 +67,6 @@ public class AuthController {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(responseBody);
             String token = jsonNode.path("data").path("token").asText();
-
-            // 保存到session中
-            session.setAttribute("token", token);
-            session.setAttribute("apikey", clientId);
 
             return ResponseEntity.ok(responseBody);
         } catch (Exception e) {

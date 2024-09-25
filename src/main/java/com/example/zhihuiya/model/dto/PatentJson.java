@@ -20,6 +20,7 @@ public class PatentJson implements Serializable {
     private String collapse_type;
     private String collapse_order;
 
+
     @Data
     public static class Sort {
         private String field;

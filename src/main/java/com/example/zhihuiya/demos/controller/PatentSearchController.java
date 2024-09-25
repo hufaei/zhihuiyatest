@@ -9,10 +9,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.Resource;
@@ -30,16 +27,17 @@ public class PatentSearchController {
     private ObjectMapper objectMapper;  // 注入 Jackson 的 ObjectMapper 解析json数据
 
     /**
-     * 通过获取token的接口缓存的token去请求api以正常响应
-     * @param session 会话缓存
-     * @param patentJson 接口返回数据结构
+     * 通过传入的 apikey 和 token 去请求外部 API
+     * @param apikey 路径参数中的 apikey
+     * @param token 路径参数中的 token
+     * @param patentJson 专利搜索的参数
      * @return ResponseEntity
      */
-    @PostMapping("/search")
-    public ResponseEntity<?> searchPatents(@RequestBody PatentJson patentJson,HttpSession session ) {
-        // 从 session 中获取 apikey 和 token
-        String apikey = (String) session.getAttribute("apikey");
-        String token = (String) session.getAttribute("token");
+    @PostMapping("/search/{apikey}/{token}")
+    public ResponseEntity<?> searchPatents(
+            @PathVariable String apikey,
+            @PathVariable String token,
+            @RequestBody PatentJson patentJson) {
 
         // 会话未登录或者缓存过期都会抛出 UnauthorizedException 异常
         if (apikey == null || token == null) {
